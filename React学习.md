@@ -596,7 +596,7 @@ render() {
 
 1. 定义虚拟DOM时，不要写引号
 2. 标签中混入JS表达式时要引用{}
-3. JSX里面央视的类名不要用class，要用className
+3. JSX里面样式的类名不要用class，要用className
 4. 内联样式，要用style={{key: value}}的形式去写。
 5. 虚拟DOM必须只有一个根标签
 6. 标签必须闭合
@@ -1562,7 +1562,7 @@ try {
     } catch (error) {
  console.log('请求出错',error);
  }
-     ```
+    ```
 
 
 
@@ -2052,6 +2052,567 @@ b.unshift(a)  //引用地址没变
 + Ref  Hook:     React.useRef()
 
 #### State  Hook
+
+
+
+### 扩展
+
+#### 扩展运算符
+
+展开运算符不能展开一个对象，会报错，加了大括号就可以通过展开运算符复制一个对象
+
+```js
+const person = {
+    name: 'cpp',
+    age: 2
+}
+const person2 = {...person}
+
+console.log(person2)
+// {name: "cpp", age: 2}
+```
+
+react可以通过`ReactDOM.render(<Person {...person}/>, document.querySelector('.test'))`传值，在这里，`{...person}`中的大括号是react中遇到js时就要加大括号，但是为什么这里可以直接用展开运算符呢？——react+babel就可以用展开运算符展开一个对象了，仅仅适用于标签属性的传递
+
+#### undefined参与数学运算为NaN
+
+#### 构造器
+
+```js
+// 构造器是否接收props，是否传递给super，
+// 类中的构造器一般能省略就省略
+constructor(props) {
+    super(props)
+    console.log('constructor', this.props)
+}
+```
+
+#### refs
+
+##### 字符串ref： 废弃
+
+##### 回调ref
+
+**注意**:
+
+1. 如果ref是以内敛的函数的方式定义的，在**更新过程**中它会被执行两次，第一次传入参数null，第二次传入参数DOM元素。
+2. 通过将ref的回调函数定义成class的绑定函数的方式可以避免上述问题。
+
+##### React.createRef:  调用后返回一个容器，该容器可以存储被ref所标识的节点。（最推荐
+
+#### React中的事件：React通过onXxx属性指定事件处理函数
+
+1. React中使用的是自定义（合成）事件，而不是使用原生的DOM事件——为了更好的兼容性。
+2. React中的事件是通过事件委托的方式处理的（委托给组件最外层的元素）——为了高效。
+3. 通过event.target得到发生事件的DOM元素。
+
+#### React事件处理函数那里只能拿函数（如果直接调用的话必须保证调用后的函数也是一个函数。可以利用高阶函数
+
+1. **高阶函数：**
+
+   a. 若A函数接受的参数是一个函数，那么A可以称之为高阶函数。
+
+   b. 若A函数，调用的返回值依然是一个函数，那么A就可以称之为高阶函数。
+
+   常见的高阶函数：Promise，setTimeout，arr.map等等
+
+2. **函数的柯里化**：通过函数调用继续返回函数的方式，实现多次接收参数最后统一处理的函数编码形式。
+
+```js
+function sum(a) {
+    return (b) => {
+        return (c) => {
+            return a+b+c
+        }
+    }
+}
+const result = sum(1)(2)(3)
+```
+
+#### 生命周期钩子
+
+常用：
+
+1. componentDidMount：一般做一些初始化的事
+
+   如： 开启定时器，发送网络请求，订阅消息
+
+2. componentWillUnmount：一般做一些收尾的事情
+
+   如： 关闭定时器，取消订阅消息
+
+#### 样式的模块化
+
+```jsx
+import React,{Component} from 'react'
+
+// 我们平时引入css， 
+// import './index.css'
+
+// 模块化引入css
+import hello from './index.module.css'
+export default class Hello extends Component {
+    render() {
+        return <h2 className="heollo.title">Hello, React</h2>
+    }
+}
+```
+
+
+
+<img src="C:/Users/wang/AppData/Roaming/Typora/typora-user-images/image-20210609151852808.png" alt="image-20210609151852808" style="zoom:50%;" />
+
+#### react配置代理的方式:比如3000端口请求5000端口的数据
+
+1. 在package.json中添加：3000没有的话向5000要，只能向5000要数据。
+
+```json
+"proxy": "http://localhost:5000"
+```
+
+请求资源的时候如果代理的3000端口public有资源，不会发送请求，直接拿取public中的资源，如果没有的话会向5000端口发送请求，获取资源。如果都没有就会报错404
+
+2. 想配置多个代理的话：创建setupProxy.js,不能用es6，只能用cjs（common.js）
+
+```js
+const proxy = require('http-proxy-middleware')
+module.exports = function(app) {
+    app.use(
+    	proxy('/api1', {	// 遇见/api1前缀的请求，就会触发该代理配置
+            target: "http://localhost:5000",	// 请求转发给谁
+            changeOrigin: true,	// 控制服务器收到的请求头中Host字段的值
+            pathWrite: {'^/api1': ''}	// 重写请求路径（必须）
+        })，
+        proxy('/api2', {
+            target: "http://localhost:5001",
+            changeOrigin: true,
+            pathWrite: {'^/api2': ''}
+        })
+    )
+}
+
+// 获取数据的时候,要加api1的前缀，不加的话public里面没有就不会走代理
+axios.get('http://localhost:3000/api1/students')
+
+axios.get('http://localhost:3000/api2/students')
+```
+
+
+
+#### 前端路由原理
+
+```html
+ <a href="https://www.bilibili.com/video/BV1wy4y1D7JT?p=76" onclick="return push('/test1')">push test1</a><br/>
+  <button onclick="push('/test2')">push test2</button><br/>
+  <button onclick="replace('/test3')">replace test3</button><br/>
+  <button onclick="back()">&lt;回退</button>
+  <button onclick="forward()">前进&gt;</button>
+  <script src="https://cdn.bootcss.com/history/4.7.2/history.js"></script>
+  <script>
+    // let history = History.createBrowserHistory() // 方法一： 直接使用h5推出的history身上的API
+    let history = History.createHashHistory() // 方法二： hash值
+    function push(path) {
+      history.push(path)
+      return false
+    }
+    function replace(path) {
+      history.replace(path)
+    }
+    function back() {
+      history.goBack()
+    }
+    function forward() {
+      history.goForward()
+    }
+    history.listen((location) => {
+      console.log('请求的路径变化了', location)
+    })
+  </script>
+```
+
+#### NavLink点谁给谁加一个默认的'active'的类名
+
+如果想要加一个别的类名可以通过activeClassName来指定。
+
+#### React默认会开启一个3000端口的服务器。
+
+public是3000端口的默认根路径，如果请求的资源不存在，就会返回index.html，index.html为兜底文件
+
+#### Switch组件：用Switch组件包裹路由，匹配路径的时候如果匹配到了，就不会继续向下继续匹配，如果不加默认匹配路由是如果匹配到了一个对应的路由，就会继续向下匹配其他路由，如果有匹配的继续展示，直到所有路由。
+
+```jsx
+
+```
+
+#### 向路由组件传递参数
+
+1. 向路由组件传递params参数
+
+```jsx
+return (
+    <div>
+      <h3>Messsage组件</h3>
+      <ul>
+        {
+          messageArr.map(msgObj => {
+            return (
+              <li key={msgObj.id}>
+                {/* 向路由组件传递params参数 */}
+                <Link to={`/home/message/detail/${msgObj.id}/${msgObj.title}`}>{msgObj.title}</Link>
+              </li>
+            )
+          })
+        }
+      </ul>
+      {/* 声明接收params参数 */}
+      <Route path="/home/message/detail/:id/:title" component={Detail}/>
+    </div>
+  )
+
+// Detail组件
+ // 接收params参数
+const {id, title} = props.match.params
+console.log(id, title)
+```
+
+2. 向路由组件传递search参数
+
+```jsx
+{/* 向路由组件传递search参数 */}
+<Link to={`/home/message/detail/?id=${msgObj.id}&title=${msgObj.title}`}>{msgObj.title}</Link>
+
+{/* search参数无需声明接收,正常注册路由即可 */}
+<Route path="/home/message/detail" component={Detail} />
+
+
+// Detail组件
+import qs from 'querystring'
+
+// 接收search参数
+const {search} = props.location
+console.log(search.slice(1))
+const {id, title} = qs.parse(search.slice(1))
+```
+
+
+
+3. 向路由组件传递state参数
+
+```jsx
+{/* 向路由组件传递state参数 */}
+<Link to={{ pathname: '/home/message/detail', state: {id: msgObj.id, title: msgObj.title}}}>{msgObj.title}</Link>
+
+/* state参数无需声明接收,正常注册路由即可 */}
+<Route path="/home/message/detail" component={Detail} />
+
+// Detail组件
+// 接收state参数
+  console.log(props)
+  const {id, title} = props.location.state || {}
+```
+
+#### 编程式路由导航
+
+```jsx
+function pushShow(id, title) {
+    // push携带跳转,携带params参数
+    // props.history.push(`/home/message/detail/${id}/${title}`)
+
+    // push跳转,携带search参数
+    // props.history.push(`/home/message/detail/?id=${id}&title=${title}`)
+
+    // push跳转, 携带state参数  push(pathname, state)
+    props.history.push('/home/message/detail', {id, title})
+}
+function replaceShow(id, title) {
+    // replace跳转,携带params参数
+    // props.history.replace(`/home/message/detail/${id}/${title}`)
+
+    // replace跳转,携带search参数
+    // props.history.replace(`/home/message/detail/?id=${id}&title=${title}`)
+
+    // replace跳转, 携带state参数  replace(pathname, state)
+    props.history.replace('/home/message/detail', { id, title })
+}
+
+
+
+<button onClick={() => pushShow(id, title)}>push查看</button>
+<button onClick={() => replaceShow(id, title)}>replace查看</button>
+```
+
+#### 想要在一般组件里面使用路由组件的API，可以使用withRouter包裹一般组件
+
+1. withRouter可以加工一般组件，让一般组件具有路由组件所具有的属性。
+2. withRouter的返回值是一个具有路由组件API的新组件
+
+#### HashRouter和BorwserRouter的区别
+
+1. 底层原理不一样：
+
+   BrowserRouter使用的是H5的history API， 不兼容IE9及以下版本
+
+   HashRouter使用的是url的hash值
+
+2. url表现形式不一样
+
+3. **刷新后对路由state的参数的影响**
+
+   ​	**BrowserRouter没有任何影响，因为state保存在history中**
+
+   ​	HashRouter刷新后会导致路由state参数的丢失
+
+#### antd
+
+```jsx
+import {Button} from 'antd'
+import 'antd/dist/antd/css'		// 引入样式
+```
+
+**antd样式的按需引入**
+
+[antd自定义](https://3x.ant.design/docs/react/use-with-create-react-app-cn)
+
+1. 引入react-app-rewried并修改package.json里的配置
+2. 还需安装customize-cra
+
+```
+npm i react-app-rewried customize-cra --save
+```
+
+
+
+
+
+**antd自定义主题**：修改less里面样式对应的变量
+
+
+
+#### 安装less，less-loader时报错， 按如下版本安装
+
+```bash
+npm install less@2.7.3 less-loader@4.1.0 -S
+```
+
+#### redux
+
+##### reducers：初始化状态和加工状态
+
+1. reducer的本质是一个函数，接收：preState和action两个参数，返回加工后的状态
+
+2. reducer有两个作用：初始化状态，加工状态
+
+3. reducer第一次被调用时，是store自动触发的
+
+   传递的preState是undefined
+
+   传递的action是type: "@@redux/INITv.f.l.p.2"
+
+##### action
+
+**1. 异步action**： 为函数
+
+```jsx
+// store.js
+// 引入createStore专门用于创建redux的最为核心的store对象
+import {createStore, applyMiddleware} from 'redux'
+// 引入为Count组件服务的reducer
+import countReducer from './count_reducer'
+
+// 引入react-thunk用于支持异步action
+import thunk from 'redux-thunk'
+// 暴露store
+export default createStore(countReducer, applyMiddleware(thunk))
+```
+
+
+
+**2. 同步actioc**： 为异步对象
+
+
+
+#### react-redux
+
+**类式组件**
+
+所有的UI组件都应该包裹一个容器组件，他们是父子关系。
+
+容器组件是真正和redux打交道的，里面可以随意地使用redux的api
+
+容器组件会传给UI组件： 1. redux中所保存的状态。 2. 用于操作状态的方法
+
+备注：容器组件给UI传递，：状态，操作状态的方法，均通过props传递。
+
+1. **容器组件**
+
+2. **UI组件**
+
+<img src="C:/Users/wang/AppData/Roaming/Typora/typora-user-images/image-20210613171447025.png" alt="image-20210613171447025" style="zoom:50%;" />
+
+```js
+// 容器组件
+import CountUI from '../../components/Count'
+import {increment, decrement} from '../../redux/count_action'
+
+// 引入connect用于连接UI组件与redux
+import {connect} from 'react-redux'
+
+// mapStateToProps用于传递状态
+const mapStateToProps = state=> ({ count: state})
+
+//  mapDispatchToProps用于传递操作状态的方法
+constmapDispatchToProps = dispatch =>  ({
+    handleIncrement: number => dispatch(increment(number)),
+    handleDecrement: number => dispatch(decrement(number))
+})
+
+// 第一个里面接收的参数mapStateToProps，mapDispatchToProps都为函数，	
+// mapStateToProps返回redux中保存的状态
+// mapDispatchToProps返回用于操作状态的方法
+// CountUI为UI组件
+export default connect(mapStateToProps, mapDispatchToProps)(CountUI)
+
+
+// UI组件里面通过this.props拿到对应的状态和方法
+```
+
+**整合上面代码**
+
+```js
+// 容器组件
+import CountUI from '../../components/Count'
+import {increment, decrement} from '../../redux/count_action'
+
+// 引入connect用于连接UI组件与redux
+import {connect} from 'react-redux'
+
+export default connect(
+    // 用于传递状态
+    state=> ({ count: state}), 
+    // 用于传递操作状态的方法
+    dispatch =>  ({
+        handleIncrement: number => dispatch(increment(number)),
+        handleDecrement: number => dispatch(decrement(number))
+ 	})
+)(CountUI)
+```
+
+##### 优化
+
+1. **优化上面代码**
+
+```js
+// 容器组件
+import CountUI from '../../components/Count'
+import {increment, decrement} from '../../redux/count_action'
+
+// 引入connect用于连接UI组件与redux
+import {connect} from 'react-redux'
+
+// mapDispatchToProps可以写成一个对象
+export default connect(
+    // 用于传递状态
+    state=> ({ count: state}), 
+    // 用于传递操作状态的方法, 简写，react-redux会自动分发（dispatch）
+   {
+       handleIncrement: increment,
+       handleDecrement: decrement
+   }
+)(CountUI)
+```
+
+
+
+2. **继续优化**：把容器组件和UI组件整合到一个文件里面
+3. **使用了react-redux不用自己监测**
+4. **Provider**
+
+```js
+// index.js
+import React from 'react'
+import ReactDOM from 'react-dom'
+import App from './App'
+import store from './redux/store'
+
+import {Provider} from 'react-redux'
+ReactDOM.render(
+    <Provider store={store}>
+        <App />
+    </Provider>,
+    document.querySelector('#root')
+)
+```
+
+
+
+
+
+**函数式组件**
+
+**useSelector，useDispatch**
+
+**实现两个组件Count和Person组件间通信**
+
+```js
+// store.js
+
+import {createStore, combineReducers} from 'redux'
+import countReducer from '../reducers/count'
+import personReducer from '../reducers/person'
+
+const reducer = combineReducers({
+  count: countReducer,
+  persons: personReducer
+})
+export const store = createStore(reducer) 
+```
+
+**Count和Person组件获取store中的数据**：例如Person组件中
+
+```jsx
+import React, {useState} from 'react'
+import {useSelector, useDispatch} from 'react-redux'
+import {nanoid} from 'nanoid'
+import { addPerson } from '../../redux/actions/person'
+
+export default function Person() {
+  const [userInfo, setUserInfo] = useState({
+    name: '',
+    age: '',
+    id: null,
+  })
+  const state = useSelector(state => state)
+  const {count, persons} = state
+  const dispatch = useDispatch()
+
+
+  const saveUserInfo = (dataType, e) => {
+    setUserInfo({...userInfo, [dataType]: e.target.value,})
+  }
+  const handleAddPerson = () => {
+    setUserInfo({...userInfo, id: nanoid()})
+    dispatch(addPerson(userInfo))
+  }
+
+  return (
+    <div>
+      <h2>我是Perosn组件</h2>
+      <h3>上方Count组件的和为：{count}</h3>
+      <input type="text" placeholder="请输入姓名" value={userInfo.name} onChange={(e) => saveUserInfo('name', e)}/>
+      <input type="text" placeholder="请输入年龄" value={userInfo.age} onChange={(e) => saveUserInfo('age', e)}/>
+      <button onClick={handleAddPerson}>添加</button>
+      <ul>
+        {
+          persons.map(item => (
+            <li key={item.id}>name: {item.name}---------age: {item.age}</li>
+          ))
+        }
+      </ul>
+    </div>
+  )
+}
+
+```
 
 
 
