@@ -574,7 +574,7 @@ console.log(result7)
 ```
 **注意我们没必要使用尖括号（<>）来明确地传入类型；编译器可以查看myString的值，然后把T设置为它的类型。**
 
-
+**我们在函数后面用<T>表示泛型，其中T可以理解为一个类型传参，当我们使用这个函数的时候把类型当成参数传给TypeScript的类型系统，告诉他之前声明T的真正类型，并进行类型检查**
 
 #### 使用泛型变量
 
@@ -667,7 +667,6 @@ const identity = <T,>(name: T) => name
 #### 泛型约束
 
 + 我们有时候想操作谋类型的一组值，并且我们知道这组值具有什么样的属性。
-
 + 比如我们想要限制函数去处理任意带有.length属性的所有类型，只要传入的类型有这个属性，
 + 为此，我们定义一个接口来描述约束条件。创建一个包含.length属性的接口，使用这个接口和`extends`关键字来实现约束
 
@@ -680,6 +679,7 @@ function loggingIdentity<T extends LengthWise>(arg: T): T {
   return arg;
 }
 const { length, value } = loggingIdentity({ length: 10, value: 222 });
+// 现在，loggingIdentity函数被lengthWise接口约束住了，我们传入的泛型参数必须包含legnth属性。
 
 <p>
   {length}: {value}
@@ -692,9 +692,80 @@ const { length, value } = loggingIdentity({ length: 10, value: 222 });
 
 2. 在泛型里使用类类型
 
+**除此之外，extends还常常配合三元运算符使用**
 
+```ts
+T extends U ? X : Y
+```
 
++ 我们可以理解成当T包含的类型是U包含类型的子集，那么返回X类型，否则返回Y类型
 
+```ts
+type Diff<T, U> = T extends U ? never : T
+type diff = Diff<string | boolean | number, string | number>
+// boolean
+```
+
+上面判断中，当T是U的子集，则返回`never`类型，否则返回`T`，所以最后duff的类型是`never | boolean | never`, 由于任意类型与`never`联合都不受`never`的影响，所以最后`diff`的类型为`boolean`
+
+##### 题 =-=
+
+实现一个 `If` 工具泛型，接受一个条件 C，若 C 为 `true` 返回类型 `T` 类型，否则返回 `F` 类型
+
+```ts
+type If<C, T, F> = <C extends boolean, T, F> = C extends true ? T : F
+type T1 = If<true, boolean, number>
+// T2为boolean类型
+type T2 = If<false, boolean, number>
+// T2为number类型
+```
+
+#### 泛型推断
+
+`infer`通常在条件判断中与extends一同实现，表示将要腿短的类型变量，推断的类型变量可以在有条件类型的true分支中被引用
+
+##### 示例一
+
+```ts
+type InferType<T> = T extends (infer R)[] ? R : T;
+
+type T1 = InferType<string[]>;
+// string
+type T2 = InferType<number>;
+// number
+```
+
++  `InferType` 中定义了泛型变量T，如果是`(infer R)[] `（R为待推断的类型变量）的子集，则返回类型R，否则返回类型
++ 当我们传入`string[]`时，`InferType`的判断相当于`string[] extends R[] ? R : string[]`,判断为true，所以R被推断为`string`,所以T1的类型返回值为`string`
++ 当我们传入`number`时,`InferType`的判断相当于`number extends R[] ? R : number`,在这里`number`不符合`R[]`,所以T2的类型返回值为`number`
+
+##### 示例2
+
+```ts
+type InferObj<T> = T extends { type: infer R} ? R : false
+
+// number 不是 { type: infer R}的子集
+type T1 = InferObj<number>;
+// false
+
+// {type: number}是 { type: infer R}的子集，R被推断为number，返回类型number
+type T2 = InferObj<{type: number}>
+// number
+```
+
+##### 题=-=
+
++ 实现 `FuncReturnType` 工具泛型，接受一个函数类型，并且推断出函数的返回值。
+
+```ts
+type FuncReturnType<T> = any; // todo
+
+type fn = (name: string)=> boolean;
+
+type T1 = FuncReturnType<fn>;
+// T1 应为boolean类型
+
+```
 
 
 
@@ -975,6 +1046,48 @@ const o1: a & b = {
 </div>
 ```
 
++ 交叉类型是将多个类型合并为一个类型，可以把现有的多种类型叠加到一起成为一种类型，它包含了所需的所有类型的特性
+
+```ts
+interface Person {
+  name: string;
+  age: number;
+}
+interface Animal {
+  walk: boolean;
+}
+
+let cpp: Person & Animal = {
+  name: 'cpp',
+  age: 22,
+  walk: true
+}
+// success
+
+let cpp: Person & Animal = {
+  name: 'cpp',
+  age: 22
+}
+// error
+
+// =-=
+let cpp: Person & Animal = {
+  name: 'cpp',
+  age: 22,
+  walk: true,
+  eat: true
+}
+```
+
++ 任意类型与`never`交叉都得到`never`
+
+```ts
+type Tumber = number & never;
+// never
+type Tstrng = string & never;
+// never
+```
+
 
 
 #### 联合类型
@@ -1017,7 +1130,7 @@ function getSmallPet(): Fish | Bird {
 
 let pet = getSmallPet();
 pet.layEggs(); // okay
-pet.swim();    // errors
+pet.swim();    // error
 ```
 
 
@@ -1035,6 +1148,74 @@ function getString(something: string | number): string {
  	return something.toString();
 }
 
+```
+
++ 任意类型与`never`联合都不受`never`的影响
+
+```ts
+type UnionType = string | number
+let str: UnionTYpe = 'hello world'
+let num: UnionType = 1
+```
+
+#### 操作符
+
+##### 1. Typeof
+
+`typeof`操作符可以用来获取一个变量的声明类型
+
+```ts
+const cpp = {
+  name: 'cpp',
+  age: 22
+}
+typeof Person = typeof cpp
+// {name: string; age: number}
+
+const hello:string = 'hello world';
+type Hello = typeof hello
+// string
+```
+
+##### 2. keyof
+
+`keyof`操作符用来获取一个类型所有的键值，与`Obecy.keys`类似，前者获取`interface`的键，后者获取对象的键。
+
+```ts
+interface Person {
+  name: string;
+  age: 22;
+}
+type T1 = keyof Person
+// 'name' | 'age'
+```
+
+
+
+**通常keyof 会配合着typeof使用**
+
+```ts
+interface Person {
+  name: string;
+  age: number;
+}
+function getPersonInfo(obj: Person, key: keyof typeof obj): string | number {
+  return obj[key]
+}
+```
+
+
+
+##### 3. in
+
+`in`操作符通常用来实现枚举类型遍历
+
+```ts
+typeof Keys = 'name' | 'age'
+type person = {
+  [K in Keys]: any
+}
+// {name: any, age: any}
 ```
 
 
@@ -1277,6 +1458,328 @@ function area(s: Shape) {
 
 + 三斜线指令是包含单个XML标签的单行注释。注释的内容会作为编译器的指令使用
 + 三斜线指令告诉编译器在编译过程中要引入额外的文件
+
+
+
+### 工具泛型
+
+#### 1. Partical
+
++ Partical可以将类型中的所有属性变成可选属性
+
+```ts
+// 源码
+type Partical<T> = {
+  [key in keyof T]?: T[p]
+}
+
+interface Person {
+  name: string,
+  age: number,
+}
+type T1 = Partical<Person>
+// 相当于
+type T1 = {
+  name?: string,
+  age?: number,
+}
+```
+
+#### 2. Record<K, T>
+
+```ts
+// 源码
+type Record<K extends keyof any, T> = {
+  [key in K]: T
+}
+// keyof any => number | string | symbol
+
+
+// Record 通常用来申明一个对象
+type T1 = Record<string, string>
+
+const cpp: T1 = {
+  name: 'cpp',
+  age: 22
+}
+```
+
+
+
+#### 3. Pick<T, K>
+
+```ts
+type Pick<T, K extends keyof T> = {
+  [P in K]: T[P]
+}
+
+// Pick通常用来将T类型中存在的K键提取出来生成一个新的类型
+interface Person {
+  name: string;
+  age: number;
+  sex: string;
+}
+
+type T1 = Pick<Person, 'name' | 'age'>;
+// 相当于
+type T1 = {
+  name: string;
+  age: number
+}
+```
+
+#### 4. Required
+
++ `Required`的作用是将传入的属性变为必选项，源码如下
+
+```ts
+typr Required<T> = {
+  [P in keyof T]-?: T[P]
+} 
+```
+
+**注意**：
+
+`-?`就是将可选代表的`?`去掉,从而让这个类型变成必选项。
+
+`+?`,这个含义与`-?`相反，它是用来把属性变为可选属性的
+
+#### 5. Readonly
+
++ 将传入的属性变为只读选项，源码如下
+
+```ts
+type Readonly<T> = {
+  readonly [P in keyof T]: T[P]
+} 
+```
+
+#### 6. Mutable
+
++ 类似地，还有对`+`和`-`，这里要说的不是变量的之间的进行加减，而是对`readonly`进行加减
++ 以下代码的作用就是将T的所有属性的readonly移除。
+
+```ts
+type Mutable<T> = {
+  -readonly [P in keyof T]: T[P]
+}
+```
+
+#### 7. Exclude
+
++ Exclude 的作用是从 T 中找出 U 中没有的元素, 换种更加贴近语义的说法其实就是从T 中排除 U
+
+```ts
+// 源码
+type Exclude<T, U> = T extends U ? never : T;
+```
+
+#### 8. Extra
+
++ Extract 的作用是提取出 T 包含在 U 中的元素, 换种更加贴近语义的说法就是从 T 中提取出 U
+
+```ts
+type Extract<T, U> = T extends U ? T : never;
+```
+
+
+
+#### 9. Omit
+
++ 用之前的 Pick 和 Exclude 进行组合, 实现忽略对象某些属性功能, 源码如下
+
+```ts
+type Omit<T, K> = Pick<T, Exclude<keyof T, K>>
+
+type Foo = Omit<{name: string, age: number}, 'name'>  // -> { age: number }
+```
+
+#### 10. ReturnType
+
++ 在阅读源码之前我们需要了解一下`infer`这个关键字，在条件类型语句中，我们可以使用`infer`声明一个类型变量并且对它进行使用，
+
+我们可以用它获取函数的返回类型，源码如下
+
+```ts
+type ReturnType<T> = T extends (...args: any[]) => infer R ? R : any
+```
+
++ 其实这里的`infer R`就是生命一个变量来承载传入函数的返回值类型，简单说就是用它取到函数返回值的类型方便之后使用
+
+```ts
+function foo(x: number): Array<number> {
+  return [x]
+}
+type fn = ReturnType<typeof foo>
+```
+
+#### 11. AxiosReturnType(未包含)
+
++ 开发经常使用axios进行封装API层请求，通常是一个函数返回一个`AxiosPromise<Resp>`,现在我想取到它的`Resp`类型
+
+```ts
+import { AxiosPromise }  from 'axios' // 导入接口
+type AxiosReturnType<T> = T extends (...args: any[]) => AxiosPromise<infer R> ? R : any
+
+type Resp = AxiosReturnType<Api> // 泛型参数中传入你的 Api 请求函数
+```
+
+
+
+### 练习题
+
+#### 1. 题一
+
++ 实现一个 `post` 方法，当我们请求地址 `url` 为 `/user/add` 时，请求参数 `params` 中必传字段为名字 `name` 和年龄 `age`，性别 `sex` 为选填字段，其中除了 `age` 字段类型为 `number`，其余字段类型都为 `string`。
+
+
+
+```ts
+import axios from 'axios';
+
+interface API {
+    '/user/add': {
+        name: string;
+        age: number;
+        sex?: string;
+    };
+    '/user/del': {
+        name: string;
+        age: number;
+        sex: string;
+    }
+}
+
+function post<T extends keyof API>(url: T, params: API[T]) {
+  return axios.post(url, params)
+}
+post('/user/del', {name: 'jack Ma', age: 17, sex: 'male'});
+post('/user/add', {name: 'jack Ma', age: 17});
+post('/user/add', {name: 'jack Ma', age: 17, sex: 'male'})
+```
+
+
+
+#### 2. 题二
+
++ 实现一个 Includes<T, K> 工具泛型，T 为一个数组类型，判断 K 是否存在于 T 中，若存在返回 true，否则返回 false
+
+```ts
+type Includes<T extends any[], K> = K extends T[number] ? true : false
+type T1 = Includes<['name','age','sex'], 'name'>
+// T1 的期望为 true
+
+type T2 = Includes<['age','sex'], 'name'>
+// T2 的期望为 false
+```
+
+这里由于 `T extends any[]`，T被约束成一个元素为any类型的数组，在typescript中，数组的类型是这样被声明的：
+
+```ts
+interface Array<T> {
+  [n: number]: T;
+  length: number;
+  toString(): string;
+  toLocaleString(): string;
+  pop(): T | undefined;
+  push(...items: T[]): number;
+  concat(...items: ConcatArray<T>[]): T[];
+  ……
+}
+// 可以看到[n: number]: T这里约定了数组的下标类型为number，所以我们可以使用T[number]来表示数组T的元素
+```
+
+#### 3. 题三
+
++ TypeScript 中有一个 `ReadOnly<T>` 工具泛型，它的功能是将 `T` 的所有属性变成只读属性
+
+```ts
+interface Person1 {
+  name: string
+  age: number
+}
+
+const cpp: Readonly<Person1> = {
+  name: 'jack Ma',
+  age: 17,
+};
+cpp.name = 'jack';
+// error, name 属性为只读
+```
+
++  现在我们需要把它改造一下，实现一个 MyReadOnly<T, K> ，K 应为 T 的属性集，若指定 K ，则将 T 中对应的属性修改成只读属性，若不指定 K ，则将所有属性变为只读属性。
+
+```ts
+
+interface Person2 {
+  name: string,
+  age: number,
+}
+
+// type MyReadOnly<T, K> = any;
+
+// 第一步，我们先遍历一遍类型 K ，并将类型 T 中存在的 K 属性设置为 readonly
+type MyReadOnlyOne<T, K> = {
+    readonly [P in K]: T[P]
+}
+
+// 第二步，将 K 类型约束成 T 的子集
+type MyReadOnlyTwo<T, K extends keyof T> = {
+    readonly [P in K]: T[P]
+}
+  
+
+// 第三步只需将剩余的属性拼接进去即可，这里我们可以使用 交叉类型&，相同属性名的情况下，若其中一个类型属性设置为只读，交叉最终返回的这个属性类型也会是只读
+type MyReadOnlyThree<T, K extends keyof T> = {
+    readonly [P in K]: T[P]
+} & T
+
+// 最后一步，还需要满足当 K 为空的时候，默认将 T 类型下所有属性设置为只读，我们可以给 K 传一个默认值 keyof T
+type MyReadOnly<T, K extends keyof T = keyof T> = {
+    readonly [P in K]: T[P]
+} & T
+const p: MyReadOnly<Person2, 'name'> = {
+  name: 'jack',
+  age: 17,
+}
+
+p.name = 'jack';
+// error
+
+p.age = 18;
+// success
+```
+
+
+
+#### 4. 题四
+
++ 实现一个 `AppendArgX<Fn, X>` 工具泛型，对于给定的函数类型 `Fn`， 和任意的类型 `X`，在 `Fn` 函数的传参末尾追加类型为 `X` 的参数
+
+```ts
+type Fn = (a: number, b: string) => number
+
+type NewFn = AppendArgX<Fn, boolean> 
+// NewFn 期望是 (a: number, b: string, x: boolean) => number
+
+```
+
+
+
+#### 5. 题五
+
++ 实现一个 `GetRequired<T>` 工具泛型，将 T 中的所有必需属性提取出来
+
+
+
+
+
+
+
+### 其他
+
++ 任意类型与never联合都不受never的影响。
++ 
 
 
 
