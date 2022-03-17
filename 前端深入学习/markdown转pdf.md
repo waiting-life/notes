@@ -308,3 +308,486 @@ fs.stat(path.join(__dirname, '../dist'), async (err, stat) => {
 
 ```
 
+
+
+3. 优化markdown转pdf
+
+```js
+const fs = require('fs')
+const path = require('path')
+const { mdToPdf } = require('md-to-pdf')
+
+class Scheduler {
+  constructor(count) {
+    this.count = count
+    this.queue = []
+    this.run = []
+  }
+
+  add(task) {
+    this.queue.push(task)
+    return this.schedule()
+  }
+
+  schedule() {
+    if (this.run.length < this.count && this.queue.length) {
+      const task = this.queue.shift()
+      const promise = task().then(() => {
+        this.run.splice(this.run.indexOf(promise), 1)
+      })
+      this.run.push(promise)
+      return promise
+    } else {
+      return Promise.race(this.run).then(() => this.schedule())
+    }
+  }
+}
+
+const mds = []
+function readdir(dir) {
+  const stat = fs.statSync(dir)
+  if (stat.isDirectory()) {
+    const fileList = fs.readdirSync(dir)
+    for (const file of fileList) {
+      if (file !== '.vuepress' && file !== '.DS_Store') {
+        readdir(path.join(dir, file))
+      }
+    }
+  } else if (dir.endsWith('.md')) {
+    mds.push(dir)
+  }
+}
+
+const tarDir = process.argv?.[2] || 'pdf'
+const tarDirPath = path.join(process.cwd(), tarDir)
+
+const scheduler = new Scheduler(10)
+
+fs.stat(tarDirPath, async (err, stat) => {
+  if (err) {
+    fs.mkdirSync(tarDirPath)
+  }
+  readdir(path.join(__dirname, '../docs'))
+
+  const results = []
+  const step = 10
+  for (let i = 0; i < mds.length; i = i + step) {
+    results.push(mds.slice(i, i + step))
+  }
+
+  for (const result of results) {
+    await Promise.all(
+      result.map((md) => {
+        const fileName =
+          Date.now() +
+          '-' +
+          md.match(/.+\/(.+\.md)$/)?.[1]?.replace('md', 'pdf')
+        scheduler.add(async () => {
+          const pdf = await mdToPdf({ path: md })
+          if (pdf) {
+            fs.writeFileSync(path.join(tarDirPath, fileName), pdf.content)
+          }
+        })
+      })
+    )
+  }
+})
+
+```
+
+
+
+```js
+console.log('任务开始时间', new Date().toLocaleString())
+console.log('任务结束时间', new Date().toLocaleString())
+```
+
+```js
+for (const md of mds) {
+    const fileName =
+      Date.now() + '-' + md.match(/.+\/(.+\.md)$/)?.[1]?.replace('md', 'pdf')
+    scheduler.add(async () => {
+      const pdf = await mdToPdf({ path: md })
+      if (pdf) {
+        fs.writeFileSync(path.join(tarDirPath, fileName), pdf.content)
+      }
+    })
+  }
+```
+
+
+
+
+
+```js
+const fs = require('fs')
+const path = require('path')
+const { mdToPdf } = require('md-to-pdf')
+const Promise = require('bluebird')
+
+class Scheduler {
+  constructor(count) {
+    this.count = count
+    this.queue = []
+    this.run = []
+  }
+
+  add(task) {
+    this.queue.push(task)
+    return this.schedule()
+  }
+
+  schedule() {
+    if (this.run.length < this.count && this.queue.length) {
+      const task = this.queue.shift()
+      const promise = task().then(() => {
+        this.run.splice(this.run.indexOf(promise), 1)
+      })
+      this.run.push(promise)
+      return promise
+    } else {
+      return Promise.race(this.run).then(() => this.schedule())
+    }
+  }
+}
+
+const mds = []
+function readdir(dir) {
+  const stat = fs.statSync(dir)
+  if (stat.isDirectory()) {
+    const fileList = fs.readdirSync(dir)
+    for (const file of fileList) {
+      if (file !== '.vuepress' && file !== '.DS_Store') {
+        readdir(path.join(dir, file))
+      }
+    }
+  } else if (dir.endsWith('.md')) {
+    mds.push(dir)
+  }
+}
+
+const tarDir = process.argv?.[2] || 'pdf'
+const tarDirPath = path.join(process.cwd(), tarDir)
+
+const scheduler = new Scheduler(10)
+
+fs.stat(tarDirPath, async (err, stat) => {
+  if (err) {
+    fs.mkdirSync(tarDirPath)
+  }
+  readdir(path.join(__dirname, '../docs'))
+
+  const results = []
+  const step = 10
+  for (let i = 0; i < mds.length; i = i + step) {
+    results.push(mds.slice(i, i + step))
+  }
+
+  for (const result of results) {
+    await Promise.all(
+      result.map((md) => {
+        const fileName =
+          Date.now() +
+          '-' +
+          md.match(/.+\/(.+\.md)$/)?.[1]?.replace('md', 'pdf')
+        // const pdf = await mdToPdf({ path: md })
+        // if (pdf) {
+        //   fs.writeFileSync(path.join(tarDirPath, fileName), pdf.content)
+        // }
+        scheduler.add(async () => {
+          const pdf = await mdToPdf({ path: md })
+          if (pdf) {
+            fs.writeFileSync(path.join(tarDirPath, fileName), pdf.content)
+          }
+        })
+      })
+    )
+  }
+})
+
+```
+
+
+
+
+
+​	**mdToPdf遍历所有文件夹下面文件合并到两一个文件夹**
+
+```js
+const fs = require('fs')
+const path = require('path')
+const { mdToPdf } = require('md-to-pdf')
+
+const mds = []
+function readdir(dir) {
+  const stat = fs.statSync(dir)
+  if (stat.isDirectory()) {
+    const fileList = fs.readdirSync(dir)
+    for (const file of fileList) {
+      if (file !== '.vuepress' && file !== '.DS_Store') {
+        readdir(path.join(dir, file))
+      }
+    }
+  } else if (dir.endsWith('.md')) {
+    mds.push(dir)
+  }
+}
+
+const tarDir = process.argv?.[2] || 'pdf'
+const tarDirPath = path.join(process.cwd(), tarDir)
+
+console.log('任务开始时间', new Date().toLocaleString())
+
+fs.stat(tarDirPath, async (err, stat) => {
+  if (err) {
+    fs.mkdirSync(tarDirPath)
+  }
+  readdir(path.join(__dirname, '../docs'))
+
+  const results = []
+  const step = 10
+  for (let i = 0; i < mds.length; i = i + step) {
+    results.push(mds.slice(i, i + step))
+  }
+
+  for (const result of results) {
+    await Promise.all(
+      result.map(async (md) => {
+        const fileName =
+          Date.now() +
+          '-' +
+          md.match(/.+\/(.+\.md)$/)?.[1]?.replace('md', 'pdf')
+
+        const pdf = await mdToPdf({ path: md })
+        if (pdf) {
+          fs.writeFileSync(path.join(tarDirPath, fileName), pdf.content)
+        }
+      })
+    )
+  }
+  console.log('任务结束时间', new Date().toLocaleString())
+})
+
+```
+
+**将一个目录里面的md文件转换为pdf并且带目录的放到另一个文件夹**
+
+```js
+const fs = require('fs-extra')
+const path = require('path')
+const rimraf = require('rimraf')
+const { mdToPdf } = require('md-to-pdf')
+
+class Scheduler {
+  constructor(count) {
+    this.count = count
+    this.queue = []
+    this.run = []
+  }
+
+  add(task) {
+    this.queue.push(task)
+    return this.schedule()
+  }
+
+  schedule() {
+    if (this.run.length < this.count && this.queue.length) {
+      const task = this.queue.shift()
+      const promise = task().then(() => {
+        this.run.splice(this.run.indexOf(promise), 1)
+      })
+      this.run.push(promise)
+      return promise
+    } else {
+      return Promise.race(this.run).then(() => this.schedule())
+    }
+  }
+}
+
+const tarDir = process.argv?.[2] || 'pdf'
+const tarDirPath = path.join(process.cwd(), tarDir)
+const scheduler = new Scheduler(5)
+
+const results = []
+function readdir(dir) {
+  fs.readdir(dir, (err, files) => {
+    if (err) {
+      console.log(err)
+    }
+    for (const file of files) {
+      const filePath = path.join(dir, file)
+      fs.stat(filePath, (err, stat) => {
+        if (err) {
+          console.log(err)
+        }
+        if (stat.isDirectory()) {
+          readdir(filePath)
+        } else if (filePath.endsWith('.md')) {
+          scheduler.add(async () => {
+            await mdToPdf({ path: filePath }).then((pdf) => {
+              const newName = filePath.replace('.md', '.pdf')
+              fs.renameSync(filePath, newName)
+              fs.writeFile(newName, pdf.content, (err) => {
+                if (err) {
+                  console.log(err)
+                }
+              })
+            })
+          })
+        }
+      })
+    }
+  })
+}
+
+fs.stat(tarDirPath, async (err, stat) => {
+  if (stat && stat.isDirectory()) {
+    rimraf(tarDirPath, (err, data) => {
+      if (err) {
+        console.log(err)
+      } else {
+        copyDir()
+      }
+    })
+  } else {
+    copyDir()
+  }
+})
+
+function copyDir() {
+  const origin = path.join(__dirname, '../docs')
+  fs.copy(origin, tarDirPath)
+    .then(() => {
+      readdir(tarDirPath)
+    })
+    .catch((err) => console.log(err))
+}
+
+```
+
+
+
+
+
+**test**
+
+```js
+import fs from 'fs-extra'
+import { fileURLToPath } from 'url'
+import path, { dirname } from 'path'
+import rimraf from 'rimraf'
+import { mdToPdf } from 'md-to-pdf'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+const tarDir = process.argv[2] || 'pdf'
+const target = path.join(process.cwd(), tarDir)
+
+class Scheduler {
+  constructor(count) {
+    this.count = count
+    this.queue = []
+    this.run = []
+  }
+  add(task) {
+    this.queue.push(task)
+    return this.schedule()
+  }
+  schedule() {
+    if (this.run.length < this.count && this.queue.length) {
+      const task = this.queue.shift()
+      const promise = task().then(() => {
+        this.run.splice(this.run.indexOf(promise), 1)
+      })
+      this.run.push(promise)
+      return promise
+    } else {
+      return Promise.race(this.run).then(() => this.schedule())
+    }
+  }
+}
+const scheduler = new Scheduler(10)
+
+fs.stat(target, async (err, stat) => {
+  if (stat && stat.isDirectory()) {
+    await rm(target)
+    copyDir()
+  } else {
+    copyDir()
+  }
+})
+
+async function copyDir() {
+  const origin = path.join(__dirname, '../docs')
+  try {
+    await fs.copy(origin, target)
+    readdir(target)
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 包装rimraf
+function rm(path) {
+  return new Promise((resolve) => rimraf(path, resolve))
+}
+
+// 递归处理文件
+async function readdir(dir) {
+  const files = await fs.readdir(dir)
+  for (const file of files) {
+    const filePath = path.join(dir, file)
+    const stat = await fs.stat(filePath)
+    if (stat.isDirectory()) {
+      readdir(filePath)
+    } else if (filePath.endsWith('.md')) {
+      scheduler.add(async () => {
+        const newFilePath = filePath.replace('.md', '.pdf')
+
+        const pdf = await mdToPdf({ path: filePath })
+        await rm(filePath)
+        fs.outputFile(newFilePath, pdf.content)
+      })
+    }
+  }
+}
+
+```
+
+```js
+const fs = require('fs')
+const path = require('path')
+const { mdToPdf } = require('md-to-pdf')
+;(async () => {
+  const pdf = await mdToPdf({ path: path.join(__dirname, '../docs/README.md') })
+  fs.writeFileSync(path.join(__dirname, '../test/README.pdf'), pdf.content)
+})()
+```
+
+**删除特定文件**
+
+```js
+function readdir(dir) {
+  fs.readdir(dir, async (err, files) => {
+    for (const file of files) {
+      if (file === '.vuepress' || file === 'images') {
+        rimraf(path.join(dir, file), (err, data) => {
+          if (err) {
+            console.log(err)
+          }
+        })
+      } else {
+        const filePath = path.join(dir, file)
+        const stat = await fs.stat(filePath)
+        if (stat.isDirectory()) {
+          readdir(filePath)
+        } else if (filePath.endsWith('.md')) {
+          console.log(filePath)
+        }
+      }
+    }
+  })
+}
+```
+
