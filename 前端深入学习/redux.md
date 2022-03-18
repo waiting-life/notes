@@ -36,6 +36,56 @@ function flattenTree3(tree: ITree) {
 }
 ```
 
+```ts
+function editMoneyById(
+  state: ITree,
+  payload: {
+    id: number;
+    props: Partial<ITree["props"]>;
+  }
+): ITree {
+  if (state.id === payload.id) {
+    return { ...state, props: { ...state.props, ...payload.props } };
+  } else {
+    if (state.children) {
+      for (let item of state.children) {
+        const newItem = editMoneyById(item, payload);
+        if (newItem !== item) {
+          return {
+            ...state,
+            children: state.children.map((i) => (i === item ? newItem : i)),
+          };
+        }
+      }
+      return state;
+    }
+  }
+  return state;
+}
+
+function replaceNode(node: ITree, map: (node: ITree) => ITree): ITree {
+  const newNode = map(node);
+  if (newNode !== node) return newNode;
+  else {
+    if (node.children) {
+      for (const item of node.children) {
+        const newItem = replaceNode(item, map);
+        if (newItem !== item) {
+          return {
+            ...node,
+            children: node.children?.map((i) =>
+              i.id === item.id ? newItem : i
+            ),
+          };
+        }
+      }
+      return node;
+    }
+  }
+  return node;
+}
+```
+
 ### index.ts
 
 ```ts
@@ -152,10 +202,54 @@ const defaultState: ITree = {
     },
   ],
 };
-export const treeReducer = (state = defaultState, action: any) => {
+
+function replaceNode(node: ITree, map: (node: ITree) => ITree): ITree {
+  const newNode = map(node);
+  if (newNode !== node) return newNode;
+  else {
+    if (node.children) {
+      for (const item of node.children) {
+        const newItem = replaceNode(item, map);
+        if (newItem !== item) {
+          return {
+            ...node,
+            children: node.children?.map((i) =>
+              i.id === item.id ? newItem : i
+            ),
+          };
+        }
+      }
+      return node;
+    }
+  }
+  return node;
+}
+
+export const treeReducer = (
+  state = defaultState,
+  action: {
+    type: typeof EDIT_MONEY;
+    payload: {
+      id: number;
+      props: Partial<ITree["props"]>;
+    };
+  }
+) => {
   switch (action.type) {
     case EDIT_MONEY:
-      return state;
+      console.log("action", action);
+      return replaceNode(state, (node) => {
+        if (node.id === action.payload.id) {
+          return {
+            ...node,
+            props: {
+              ...node.props,
+              ...action.payload.props,
+            },
+          };
+        }
+        return node;
+      });
     default:
       return state;
   }
